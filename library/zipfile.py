@@ -65,6 +65,14 @@ options:
       - 8
       - 9
 
+  recurse:
+    description:
+      - Recursively adds files / folders to the resulting archive.
+      - If M(flatten) option is used, then only the files are added to the archive.
+  required: false
+  default: false
+  type: boolean
+
   flatten:
     description:
       - This flag force the paths of the files being archived to be flatten (junked), meaning that only the actual filenames will be present in the archive - not full paths.
@@ -128,6 +136,7 @@ def run_module():
         filename       = dict(type='path', required=True),
         chdir          = dict(type='path', required=False, default=None),
         compress_level = dict(type='str',  requured=False, default='default', choices=COMPRESS_CHOICES),
+        recurse        = dict(type='bool', required=False, default=False),
         flatten        = dict(type='bool', required=False, default=False),
         force          = dict(type='bool', required=False, default=False)
     )
@@ -141,6 +150,7 @@ def run_module():
     paths          = module.params['paths']
     chdir          = module.params['chdir']
     compress_level = module.params['compress_level']
+    recurse        = module.params['recurse']
     flatten        = module.params['flatten']
     force          = module.params['force']
 
@@ -155,6 +165,7 @@ def run_module():
         filename       = filename,
         chdir          = chdir,
         compress_level = compress_level,
+        recurse        = recurse,
         flatten        = flatten,
         force          = force
     )
@@ -170,6 +181,7 @@ def run_module():
     if not force and os.path.exists(filename):
         module.exit_json(**result)
 
+    all_paths = []
     archive_paths = {}
 
     for path in paths:
@@ -178,12 +190,24 @@ def run_module():
         else:
             path = os.path.expanduser(path)
 
-            if flatten:
-                archive_paths[path] = os.path.basename(path)
-            else:
-                # NOTE: Archive names should be relative to the archive root,
-                # that is, they should not start with a path separator:
-                archive_paths[path] = path.lstrip('/')
+        # We need to recurse through all the subdirectories ourselves:
+        if os.path.isdir(path) and recurse:
+            for dirpath, dirnames, filenames in os.walk(path):
+                for file in filenames:
+                    all_paths.append(os.path.join(dirpath, file))
+
+                if not flatten:
+                    all_paths.append(dirpath)
+        else:
+            all_paths.append(path)
+
+    for path in all_paths:
+        if flatten:
+            archive_paths[path] = os.path.basename(path)
+        else:
+            # NOTE: Archive names should be relative to the archive root,
+            # that is, they should not start with a path separator:
+            archive_paths[path] = path.lstrip('/')
 
     # -----------------------------------------------------------------
 
