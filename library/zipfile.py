@@ -178,8 +178,16 @@ def run_module():
         except Exception as ex:
             module.fail_json(msg=str(ex), **result)
 
-    if not force and os.path.exists(filename):
-        module.exit_json(**result)
+    if os.path.exists(filename):
+        if not force:
+            module.exit_json(**result)
+
+        try:
+            os.remove(filename)
+        except OSError:
+            module.fail_json(msg="refusing to delete existing folder: %s" % filename, **result)
+
+    # -----------------------------------------------------------------
 
     all_paths = []
     archive_paths = {}
