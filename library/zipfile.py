@@ -37,34 +37,6 @@ options:
     default: null
     type: path
 
-  compress_level:
-    description:
-      - Allows overriding default compression level for the archival process.
-      - Can be useful when archiving huge files to bring down the notarization time on Apple servers.
-      - M(default) value corresponds to level M(-1), which default of the M(zlib) library. Currently it should equal to compression level M(6).
-      - M(none) value corresponds to level M(0).
-      - M(fast) value corresponds to level M(1).
-      - M(best) value corresponds to level M(9).
-    required: false
-    default: default
-    type: str
-    choices:
-      - default
-      - none
-      - fast
-      - best
-      - -1
-      - 0
-      - 1
-      - 2
-      - 3
-      - 4
-      - 5
-      - 6
-      - 7
-      - 8
-      - 9
-
   recurse:
     description:
       - Recursively adds files / folders to the resulting archive.
@@ -135,7 +107,6 @@ def run_module():
         paths          = dict(type='list', required=True, elements='path'),
         filename       = dict(type='path', required=True),
         chdir          = dict(type='path', required=False, default=None),
-        compress_level = dict(type='str',  requured=False, default='default', choices=COMPRESS_CHOICES),
         recurse        = dict(type='bool', required=False, default=False),
         flatten        = dict(type='bool', required=False, default=False),
         force          = dict(type='bool', required=False, default=False)
@@ -149,7 +120,6 @@ def run_module():
 
     paths          = module.params['paths']
     chdir          = module.params['chdir']
-    compress_level = module.params['compress_level']
     recurse        = module.params['recurse']
     flatten        = module.params['flatten']
     force          = module.params['force']
@@ -164,7 +134,6 @@ def run_module():
         paths          = paths,
         filename       = filename,
         chdir          = chdir,
-        compress_level = compress_level,
         recurse        = recurse,
         flatten        = flatten,
         force          = force
@@ -219,15 +188,9 @@ def run_module():
 
     # -----------------------------------------------------------------
 
-    if compress_level in COMPRESS_MAPPING:
-        compress_level = COMPRESS_MAPPING[compress_level]
-    elif not isinstance(compress_level, int):
-        module.fail_json(msg="incorrect value for 'compress_level' option: %s" % compress_level, **result)
-    else:
-        compress_level = int(compress_level)
-
-    with zipfile.ZipFile(filename, mode='w', compression=zipfile.ZIP_DEFLATED,
-                         compresslevel=compress_level) as zipped_file:
+    with zipfile.ZipFile(filename, mode='w',
+                         compression=zipfile.ZIP_DEFLATED,
+                         allowZip64=True) as zipped_file:
         for path, archive_path in archive_paths.items():
             zipped_file.write(path, arcname=archive_path)
 
